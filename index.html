@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Пивнушка</title>
+<style>
+/* Layout: a pub counter. Level, plates, moves and score on top, the board in the middle, boosters under it,
+   the start / end-of-level card over everything */
+:root{
+  --wood:#2a160b;
+  --wood-2:#3c2212;
+  --cell:#4a2a15;
+  --cell-2:#412411;
+  --foam:#fff4d6;
+  --amber:#f5a623;
+  --amber-d:#b86a08;
+  --text:#fff1d8;
+  --dim:#d9b98c;
+  --red:#d8402f;
+  --f:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--wood);color:var(--text);font:400 15px/1.4 var(--f);-webkit-font-smoothing:antialiased;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) 10px calc(env(safe-area-inset-bottom,0px) + 10px);
+  background:radial-gradient(120% 70% at 50% 0%,#6b3d1c 0%,var(--wood-2) 45%,var(--wood) 100%)}
+
+.hud{width:var(--board-w);display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stat{min-width:0;padding:6px 4px 7px;border-radius:12px;background:rgba(0,0,0,.32);box-shadow:inset 0 0 0 1px rgba(255,220,160,.14);text-align:center}
+.stat span{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.stat b{display:block;font:800 clamp(19px,5.6vw,27px)/1.1 var(--f);font-variant-numeric:tabular-nums}
+.stat.goal b{color:#9fd8ff}
+.stat.low b{color:#ff8a7a}
+
+.board{position:relative;width:var(--board-w);height:var(--board-h);border-radius:14px;overflow:hidden;
+  background:rgba(20,10,4,.55);box-shadow:0 0 0 3px #7a4a24,0 0 0 6px #2a160b,0 14px 34px rgba(0,0,0,.55)}
+.board.aim{box-shadow:0 0 0 3px #ffd36a,0 0 0 6px #2a160b,0 0 26px rgba(255,200,80,.55);cursor:crosshair}
+/* A cell of the board; a plate under it is a stone slab, a double one has a golden rim */
+.bg{position:absolute;left:0;top:0;width:var(--c);height:var(--c);background:var(--cell)}
+.bg.odd{background:var(--cell-2)}
+.bg.p1,.bg.p2{background:linear-gradient(135deg,#cfe6f5,#8fb6d2);box-shadow:inset 0 0 0 2px #5d86a6,inset 0 0 0 4px rgba(255,255,255,.35)}
+.bg.p2{background:linear-gradient(135deg,#7fa6c4,#4d7696);box-shadow:inset 0 0 0 3px #ffd36a,inset 0 0 0 5px #8a5a10}
+.bg.broke{animation:broke .35s ease-out}
+@keyframes broke{from{filter:brightness(2.2)}}
+.tile{position:absolute;left:0;top:0;width:var(--c);height:var(--c);padding:calc(var(--c) * .07);will-change:transform;
+  transition:transform var(--t,.18s) cubic-bezier(.3,.8,.4,1)}
+.tile i{position:relative;z-index:1;display:block;width:100%;height:100%;background:center/contain no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));
+  transition:transform .2s,opacity .2s}
+.k0 i{background-image:url(assets/mug.png)}
+.k1 i{background-image:url(assets/cap.png)}
+.k2 i{background-image:url(assets/pretzel.png)}
+.k3 i{background-image:url(assets/fish.png)}
+.k4 i{background-image:url(assets/hop.png)}
+.k5 i{background-image:url(assets/lemon.png)}
+.crate i{background-image:url(assets/crate.png)}
+/* Special pieces: a glowing band and a keg badge for a line piece, a bomb badge, a golden mug */
+.t1::before,.t2::before{content:"";position:absolute;z-index:2;opacity:.9;border-radius:99px;background:linear-gradient(90deg,transparent,#ffe9a8 20%,#fff 50%,#ffe9a8 80%,transparent);
+  box-shadow:0 0 8px 2px rgba(255,210,110,.8);animation:band 1.1s ease-in-out infinite}
+.t1::before{left:0;right:0;top:43%;height:14%}
+.t2::before{top:0;bottom:0;left:43%;width:14%;background:linear-gradient(transparent,#ffe9a8 20%,#fff 50%,#ffe9a8 80%,transparent)}
+.t1::after,.t2::after,.t3::after{content:"";position:absolute;z-index:3;right:2%;bottom:2%;width:46%;height:46%;background:center/contain no-repeat;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.t1::after,.t2::after{background-image:url(assets/barrel.png)}
+.t2::after{transform:rotate(90deg)}
+.t3::after{background-image:url(assets/bomb.png);animation:pulse .9s ease-in-out infinite}
+.t3 i{filter:drop-shadow(0 0 5px #ff5a3c) drop-shadow(0 2px 2px rgba(0,0,0,.45))}
+.gold i{background-image:url(assets/gold.png);animation:shine 1.4s ease-in-out infinite}
+/* Covers, drawn over the piece: a chain, thin ice, thick ice */
+.tile u{position:absolute;z-index:4;inset:3%;background:center/contain no-repeat;pointer-events:none;transition:opacity .2s,transform .2s}
+.c1 u{background-image:url(assets/chain.png);filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.c2 u{background-image:url(assets/ice.png);opacity:.72}
+.c3 u{background-image:url(assets/ice2.png);opacity:.88}
+.tile.crack u{animation:crack .22s ease-out}
+@keyframes crack{50%{transform:scale(1.18);filter:brightness(1.8)}}
+@keyframes band{50%{opacity:.45}}
+@keyframes pulse{50%{transform:scale(1.18)}}
+@keyframes shine{50%{filter:drop-shadow(0 0 9px #ffe07a) brightness(1.15)}}
+.tile.sel{z-index:2}
+.tile.sel i{transform:scale(1.14);filter:drop-shadow(0 0 6px #ffe28a) drop-shadow(0 2px 2px rgba(0,0,0,.45))}
+.tile.pop i{transform:scale(.2) rotate(25deg);opacity:0}
+.tile.pop::before,.tile.pop::after,.tile.pop u{opacity:0}
+.tile.mix i{transform:scale(.3);opacity:0}
+.tile.born{animation:born .3s cubic-bezier(.3,1.6,.5,1)}
+@keyframes born{from{scale:.2}}
+.tile.hint i{animation:hint .5s ease-in-out 3}
+@keyframes hint{50%{transform:scale(1.16) rotate(-6deg)}}
+.gain{position:absolute;z-index:6;transform:translate(-50%,-50%);font:800 calc(var(--c) * .5)/1 var(--f);color:#fff;white-space:nowrap;
+  text-shadow:0 2px 0 var(--amber-d),0 0 10px rgba(0,0,0,.6);pointer-events:none;animation:gain .8s ease-out forwards}
+.gain.big{color:#ffe28a;font-size:calc(var(--c) * .68)}
+@keyframes gain{from{opacity:0;margin-top:8px}20%{opacity:1}to{opacity:0;margin-top:calc(var(--c) * -.9)}}
+.fx{position:absolute;z-index:5;pointer-events:none;border-radius:calc(var(--c) * .3);background:radial-gradient(closest-side,#fff,rgba(255,214,110,.85) 55%,rgba(255,150,40,0));animation:fx .38s ease-out forwards}
+.fx.all{inset:0;border-radius:0;background:rgba(255,226,140,.6)}
+@keyframes fx{from{opacity:1}to{opacity:0;filter:blur(4px)}}
+
+.boosts{width:var(--board-w);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.boost{appearance:none;position:relative;display:flex;align-items:center;gap:6px;min-width:0;padding:6px 8px;border:0;border-radius:12px;background:rgba(0,0,0,.32);box-shadow:inset 0 0 0 1px rgba(255,220,160,.14);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.boost img,.boost .plus{flex:none;width:34px;height:34px}
+.boost .plus{display:grid;place-items:center;border-radius:50%;background:linear-gradient(#ffc548,var(--amber));color:#3a1f08;font:800 15px/1 var(--f);box-shadow:0 2px 0 var(--amber-d)}
+.boost b{display:block;font:700 12px/1.15 var(--f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.boost span{display:block;font:700 12px/1.2 var(--f);color:var(--amber);white-space:nowrap}
+.boost em{position:absolute;right:-3px;top:-5px;min-width:20px;padding:1px 5px;border-radius:99px;background:var(--red);color:#fff;font:800 11px/1.4 var(--f);font-style:normal;text-align:center}
+.boost.on{box-shadow:inset 0 0 0 2px #ffd36a,0 0 14px rgba(255,200,80,.5)}
+.boost.urge{animation:urge 1s ease-in-out infinite}
+@keyframes urge{50%{box-shadow:inset 0 0 0 2px #ffd36a}}
+.boost:disabled{opacity:.45;cursor:default;animation:none}
+.wallet{font-size:13px;color:var(--dim)}
+.wallet b{color:var(--amber)}
+
+.card{position:fixed;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,calc(100% - 32px));max-height:calc(100% - 24px);overflow:auto;padding:18px 18px 20px;border-radius:18px;
+  background:linear-gradient(#6a3c1c,#4a2812);box-shadow:0 0 0 3px #8a5528,0 0 0 6px #2a160b,0 20px 50px rgba(0,0,0,.6);text-align:center}
+.card .lvl{display:inline-block;margin-bottom:6px;padding:3px 12px;border-radius:99px;background:rgba(0,0,0,.3);color:var(--amber);font:800 13px/1.4 var(--f);letter-spacing:.06em;text-transform:uppercase}
+.card h1{margin:0 0 6px;font:800 30px/1.1 var(--f);color:var(--foam)}
+.card p{margin:0 0 10px;color:var(--dim)}
+.card ul{margin:0 0 12px;padding:0;list-style:none;text-align:left;color:var(--dim);font-size:13px;line-height:1.3}
+.card li{display:flex;align-items:center;gap:8px;margin:5px 0}
+.card li img,.card li .slab{flex:none;width:26px;height:26px;object-fit:contain}
+.card li .slab{border-radius:4px;background:linear-gradient(135deg,#cfe6f5,#8fb6d2);box-shadow:inset 0 0 0 2px #5d86a6}
+.card .online{color:var(--amber);font-weight:700}
+.stats{display:flex;justify-content:center;gap:22px;margin:4px 0 12px}
+.stats b{display:block;font:800 30px/1.1 var(--f);font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.new{font:800 18px/1.2 var(--f);color:#ffe28a}
+.paid{font:800 22px/1.2 var(--f);color:var(--amber)}
+.btn{appearance:none;border:0;border-radius:14px;padding:12px 30px;background:linear-gradient(#ffc548,var(--amber));color:#3a1f08;font:800 19px/1 var(--f);cursor:pointer;box-shadow:0 4px 0 var(--amber-d)}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--amber-d)}
+.btn:disabled{opacity:.6;cursor:default}
+.toast{position:fixed;z-index:9;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 14px;border-radius:10px;background:var(--foam);color:#7a1d12;font-weight:700;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion:reduce){.tile.hint i,.t1::before,.t2::before,.t3::after,.gold i,.boost.urge{animation:none}}
+</style>
+</head>
+<body>
+<div class="hud">
+  <div class="stat"><span>уровень</span><b id="level">1</b></div>
+  <div class="stat goal"><span>плитки</span><b id="plates">0</b></div>
+  <div class="stat" id="leftBox"><span>ходы</span><b id="left">0</b></div>
+  <div class="stat"><span>очки</span><b id="score">0</b></div>
+</div>
+<div class="board" id="board"></div>
+<div class="boosts" id="boosts">
+  <button class="boost" data-k="h"><img src="assets/hammer.png" alt=""><div><b>Молоток</b><span></span></div><em></em></button>
+  <button class="boost" data-k="s"><img src="assets/mix.png" alt=""><div><b>Смешать</b><span></span></div><em></em></button>
+  <button class="boost" data-k="m"><div class="plus" id="plus">+5</div><div><b>Ходы</b><span></span></div><em></em></button>
+</div>
+<div class="wallet" id="wallet" hidden>На балансе: <b id="balance">0</b></div>
+
+<div class="card" id="start">
+  <div class="lvl" id="startLvl">Уровень 1</div>
+  <h1>Пивнушка</h1>
+  <p>Собирай три в ряд над плитками, чтобы разбить их все, пока не кончились ходы.</p>
+  <ul>
+    <li><span class="slab"></span>Плитка бьётся, когда фишка над ней исчезает; с золотой каймой — в два приёма</li>
+    <li><img src="assets/chain.png" alt="">Цепь: фишку не сдвинуть, пока не соберёшь с ней ряд</li>
+    <li><img src="assets/ice.png" alt="">Лёд и ящики колются рядом по соседству</li>
+    <li><img src="assets/barrel.png" alt="">4 в ряд — бочка, угол — бомба, 5 в ряд — золотая кружка</li>
+  </ul>
+  <p class="online" id="netInfo" hidden></p>
+  <button class="btn" id="go">Наливай!</button>
+</div>
+
+<div class="card" id="over" hidden>
+  <div class="lvl" id="overLvl">Уровень 1</div>
+  <h1 id="overTitle">Уровень пройден!</h1>
+  <p id="overText" hidden></p>
+  <div class="stats">
+    <div><b id="final">0</b><span>очки</span></div>
+    <div><b id="best">0</b><span>рекорд</span></div>
+  </div>
+  <p id="newBest" class="new" hidden>Новый рекорд!</p>
+  <p id="paid" class="paid" hidden></p>
+  <button class="btn" id="again">Дальше</button>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+import { COLS, ROWS, SIZE, KINDS, MAX_PAY, VOID, GOLD, CRATE, LINE_H, LINE_V, BOMB, BOOSTS, MAX_BOOST, BOOST_MOVES,
+  newGame, act, canSwap, adjacent, findMove, typeOf, baseOf, coverOf } from './rules.js?v=3';
+
+const $ = id => document.getElementById(id);
+const boardEl = $('board');
+const sleep = ms => new Promise(done => setTimeout(done, ms));
+const SWAP_MS = 180, POP_MS = 220, FALL_MS = 90, HINT_MS = 6000;
+
+// The board fills the screen width, or what is left of the height around the counters and the boosters
+let cell = 40;
+function resize() {
+  const w = Math.min(innerWidth - 20, 520), h = innerHeight - 215;
+  cell = Math.floor(Math.max(24, Math.min(w / COLS, h / ROWS)));
+  const st = document.documentElement.style;
+  st.setProperty('--c', cell + 'px');
+  st.setProperty('--board-w', cell * COLS + 'px');
+  st.setProperty('--board-h', cell * ROWS + 'px');
+}
+addEventListener('resize', resize); resize();
+
+// Without a game server the level and the best score live in this browser
+let level = 1, best = 0;
+try { level = Math.max(1, +localStorage.getItem('match.level') || 1); best = +localStorage.getItem('match.best') || 0; } catch (e) {}
+
+// state: 'idle' | 'play' | 'done'. tiles[i] is the piece's element in cell i (null where the board has no cell),
+// bgs[i] the cell's own element, actions what was done in this game, used how many boosters of each kind it took,
+// aim is on while the hammer waits for its cell.
+let state = 'idle', g = null, tiles = [], bgs = [], actions = [], used = { h: 0, s: 0, m: 0 }, busy = false, sel = -1, aim = false, hintTimer = 0;
+
+const colOf = i => i % COLS, rowOf = i => Math.floor(i / COLS);
+// busy is on while an action plays out; the board carries it as a class
+const setBusy = on => { busy = on; boardEl.classList.toggle('busy', on); };
+const place = (el, col, row, ms = SWAP_MS) => {
+  el.style.setProperty('--t', ms + 'ms');
+  el.style.transform = `translate(${col * 100}%,${row * 100}%)`;
+};
+function pieceClass(v) {
+  const base = baseOf(v), cover = coverOf(v);
+  const kind = base === GOLD ? 'gold' : base === CRATE ? 'crate' : `k${base % KINDS}` + (typeOf(v) ? ` t${typeOf(v)}` : '');
+  return `tile ${kind}` + (cover ? ` c${cover}` : '');
+}
+function makeTile(piece, col, row) {
+  const el = document.createElement('div');
+  el.className = pieceClass(piece);
+  el.append(document.createElement('i'), document.createElement('u'));
+  place(el, col, row, 0);
+  boardEl.append(el);
+  return el;
+}
+const bgClass = (i, layers) => 'bg' + ((colOf(i) + rowOf(i)) % 2 ? ' odd' : '') + (layers ? ` p${layers}` : '');
+
+function hud() {
+  $('level').textContent = g ? g.level.n : level;
+  $('plates').textContent = g ? g.platesLeft : 0;
+  $('score').textContent = g ? g.score : 0;
+  $('left').textContent = g ? g.left : 0;
+  $('leftBox').classList.toggle('low', !!g && g.left <= 3 && state === 'play');
+  for (const btn of document.querySelectorAll('.boost')) {
+    const k = btn.dataset.k, rest = MAX_BOOST - used[k];
+    btn.querySelector('span').textContent = net ? `${BOOSTS[k]} монет` : 'бесплатно';
+    btn.querySelector('em').textContent = rest;
+    btn.disabled = state !== 'play' || rest <= 0 || net?.dead;
+    btn.classList.toggle('on', k === 'h' && aim);
+    btn.classList.toggle('urge', k === 'm' && state === 'play' && g.left <= 2 && rest > 0);
+  }
+  boardEl.classList.toggle('aim', aim);
+}
+
+// Lays out the level and deals its pieces: they fall in from above, column by column
+function reset(seed, n) {
+  for (const el of boardEl.querySelectorAll('.tile,.bg,.gain,.fx')) el.remove();
+  g = newGame(seed, n);
+  actions = []; used = { h: 0, s: 0, m: 0 }; sel = -1; aim = false;
+  bgs = new Array(SIZE).fill(null); tiles = new Array(SIZE).fill(null);
+  for (const i of g.level.cells) {
+    const bg = document.createElement('div');
+    bg.className = bgClass(i, g.plate[i]);
+    bg.style.transform = `translate(${colOf(i) * 100}%,${rowOf(i) * 100}%)`;
+    boardEl.append(bg);
+    bgs[i] = bg;
+  }
+  for (const i of g.level.cells) tiles[i] = makeTile(g.board[i], colOf(i), rowOf(i) - ROWS);
+  boardEl.offsetWidth; // the start places take effect before the fall
+  for (const i of g.level.cells) place(tiles[i], colOf(i), rowOf(i), 350 + colOf(i) * 40);
+  hud();
+}
+
+/* ---------- online mode: the game server deals each game and takes its actions ---------- */
+// The server address comes from the page link (?api=host). Without it the game runs here alone.
+let net = null;   // { host, token, sid, dead }
+
+async function call(route, body = {}) {
+  try {
+    const res = await fetch(`https://${net.host}/match/api/${route}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ game: net.token, sid: net.sid, ...body }),
+      referrerPolicy: 'no-referrer',
+    });
+    return await res.json();
+  } catch (e) {
+    return { error: 'Нет связи с сервером игры' };
+  }
+}
+function setBalance(n) {
+  if (!Number.isInteger(n)) return;
+  $('balance').textContent = n; $('wallet').hidden = false;
+}
+
+let toastTimer = 0;
+function toast(msg, ms = 5000) {
+  $('toast').textContent = msg; $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, ms);
+}
+const lockButtons = on => { $('go').disabled = on; $('again').disabled = on; };
+
+// Taken over by the game opened in another window: this one stops
+function lost() {
+  net.dead = true; lockButtons(true); hud();
+  toast('Игра открыта в другом окне — здесь она остановлена');
+}
+
+let starting = false, haptic = null;
+async function startGame() {
+  if (starting || state === 'play' || net?.dead || (net && !net.sid)) return;
+  let seed = (Math.random() * 2 ** 32) >>> 0;
+  if (net) {
+    starting = true; lockButtons(true);
+    const r = await call('start');
+    starting = false; lockButtons(false);
+    if (r.closed) return lost();
+    if (!Number.isInteger(r.seed) || !Number.isInteger(r.level)) return toast(r.error || 'Нет связи с сервером игры');
+    seed = r.seed; level = r.level;
+  }
+  state = 'play';
+  reset(seed, level);
+  $('start').hidden = true; $('over').hidden = true; $('toast').hidden = true;
+  armHint();
+}
+
+// The end of a game: the level is won or the swaps are over
+async function endGame() {
+  state = 'done'; aim = false; clearTimeout(hintTimer); hud();
+  const score = g.score, played = g.level.n, left = g.platesLeft;
+  let won = g.won;
+  const [r] = await Promise.all([net ? call('finish', { actions }) : null, sleep(600)]);
+  let isNew = false, paid = 0;
+  if (!net) {
+    isNew = score > best;
+    if (isNew) best = score;
+    if (won) level = played + 1;
+    try { localStorage.setItem('match.best', best); localStorage.setItem('match.level', level); } catch (e) {}
+  } else if (r.closed) {
+    lost();
+  } else {
+    if (Number.isInteger(r.best)) best = r.best;
+    if (Number.isInteger(r.level)) level = r.level;
+    setBalance(r.balance);
+    if (r.error) { toast(r.error); won = false; }
+    else { isNew = r.record; paid = r.paid; won = r.won; }
+  }
+  $('overLvl').textContent = `Уровень ${played}`;
+  $('overTitle').textContent = won ? 'Уровень пройден!' : 'Ходы кончились';
+  $('overText').textContent = won ? '' : `Осталось плиток: ${left}. Уровень можно сыграть заново сколько угодно раз.`;
+  $('overText').hidden = won;
+  $('final').textContent = score; $('best').textContent = best;
+  $('newBest').hidden = !isNew;
+  $('paid').textContent = `+${paid} на баланс` + (paid >= MAX_PAY ? ' — потолок' : ''); $('paid').hidden = !paid;
+  $('again').textContent = won ? `Уровень ${level}` : 'Ещё раз';
+  $('over').hidden = false;
+}
+
+// ---- What an action does on the screen ----
+function label(text, x, y, big) {
+  const el = document.createElement('div');
+  el.className = 'gain' + (big ? ' big' : '');
+  el.textContent = text;
+  el.style.left = Math.max(cell, Math.min(cell * (COLS - 1), x * cell)) + 'px';
+  el.style.top = y * cell + 'px';
+  boardEl.append(el);
+  setTimeout(() => el.remove(), 850);
+}
+function gainLabel(cells, gain, combo) {
+  if (!cells.length) return;
+  let x = 0, y = 0;
+  for (const i of cells) { x += colOf(i) + 0.5; y += rowOf(i) + 0.5; }
+  label(`+${gain}` + (combo > 1 ? ` ×${combo}` : ''), x / cells.length, y / cells.length, combo > 1 || gain >= 100);
+}
+// A special piece going off: a flash over what it hits
+function flash(type, i) {
+  const el = document.createElement('div'), col = colOf(i), row = rowOf(i), st = el.style;
+  el.className = 'fx';
+  if (type === LINE_H) { st.left = '0'; st.width = '100%'; st.top = row * cell + 'px'; st.height = cell + 'px'; }
+  else if (type === LINE_V) { st.top = '0'; st.height = '100%'; st.left = col * cell + 'px'; st.width = cell + 'px'; }
+  else if (type === BOMB) { st.left = (col - 1) * cell + 'px'; st.top = (row - 1) * cell + 'px'; st.width = st.height = cell * 3 + 'px'; }
+  else el.classList.add('all');
+  boardEl.append(el);
+  setTimeout(() => el.remove(), 400);
+}
+
+// Plays the rounds of an action: pieces go, covers and plates break, special pieces appear, the rest falls,
+// new pieces come
+async function show(res) {
+  let shown = g.score - res.bonus - res.steps.reduce((sum, s) => sum + s.gain, 0);
+  let plates = g.platesLeft + res.steps.reduce((sum, s) => sum + s.plates.length, 0);
+  for (const step of res.steps) {
+    for (const [type, i] of step.fx) flash(type, i);
+    for (const i of step.cleared) tiles[i].classList.add('pop');
+    for (const [i] of step.changed) tiles[i].classList.add('crack');
+    gainLabel([...step.cleared, ...step.changed.map(c => c[0])], step.gain, step.combo);
+    haptic?.(step.fx.length ? 'heavy' : step.combo > 1 ? 'medium' : 'light');
+    shown += step.gain; plates -= step.plates.length;
+    $('score').textContent = shown;
+    $('plates').textContent = plates;
+    await sleep(POP_MS);
+    for (const i of step.cleared) { tiles[i].remove(); tiles[i] = null; }
+    for (const [i, piece] of step.changed) tiles[i].className = pieceClass(piece);
+    for (const [i, layers] of step.plates) bgs[i].className = bgClass(i, layers) + ' broke';
+    for (const [i, piece] of step.made) {
+      tiles[i] = makeTile(piece, colOf(i), rowOf(i));
+      tiles[i].classList.add('born');
+    }
+
+    // Pieces fall: the one now in cell i came from drops[i] rows above, a new one from above the top
+    const next = tiles.slice();
+    let far = 0;
+    for (let i = 0; i < SIZE; i++) {
+      const d = step.drops[i];
+      if (!d) continue;
+      next[i] = rowOf(i) - d >= 0 ? tiles[i - d * COLS] : makeTile(step.board[i], colOf(i), rowOf(i) - d);
+      far = Math.max(far, Math.min(d, ROWS));
+    }
+    boardEl.offsetWidth;
+    for (let i = 0; i < SIZE; i++) if (step.drops[i]) place(next[i], colOf(i), rowOf(i), 140 + Math.min(step.drops[i], ROWS) * FALL_MS);
+    tiles = next;
+    await sleep(far ? 140 + far * FALL_MS : 120);
+  }
+
+  if (res.bonus) {
+    label(`+${res.bonus} за ходы`, COLS / 2, ROWS / 2, true);
+    $('score').textContent = g.score;
+    await sleep(500);
+  }
+  if (res.shuffled) {
+    if (!res.steps.length) haptic?.('medium'); else toast('Ходов нет — фишки перемешаны', 2500);
+    for (const el of tiles) el?.classList.add('mix');
+    await sleep(POP_MS);
+    tiles.forEach((el, i) => { if (el) el.className = pieceClass(res.shuffled[i]) + ' mix'; });
+    boardEl.offsetWidth;
+    for (const el of tiles) el?.classList.remove('mix');
+    await sleep(POP_MS);
+  }
+  if (res.stuck) toast('Ходов на поле больше нет');
+}
+
+// After an action: counters, then the end of the game or the next move
+function after() {
+  setBusy(false);
+  hud();
+  if (g.won || g.left <= 0) endGame(); else armHint();
+}
+function before() {
+  setBusy(true); select(-1); clearTimeout(hintTimer);
+  for (const el of tiles) el?.classList.remove('hint');
+}
+
+async function swap(a, b) {
+  if (busy || state !== 'play' || !adjacent(a, b) || !tiles[a] || !tiles[b]) return;
+  before();
+  const ta = tiles[a], tb = tiles[b];
+  // A golden piece goes off where it stands; any other pair changes places
+  const gold = g.board[a] === GOLD || g.board[b] === GOLD;
+  const ok = canSwap(g.board, a, b);
+  if (!gold || !ok) {
+    place(ta, colOf(b), rowOf(b)); place(tb, colOf(a), rowOf(a));
+    await sleep(SWAP_MS);
+    if (!ok) {
+      place(ta, colOf(a), rowOf(a)); place(tb, colOf(b), rowOf(b));
+      await sleep(SWAP_MS);
+      setBusy(false); armHint();
+      return;
+    }
+    tiles[a] = tb; tiles[b] = ta;
+  }
+  const res = act(g, [a, b]);
+  actions.push([a, b]);
+  $('left').textContent = g.left;
+  await show(res);
+  after();
+}
+
+// A booster: paid for on the server first (online), then used here and written into the game's actions
+async function boost(kind, cellNo) {
+  if (busy || state !== 'play' || used[kind] >= MAX_BOOST) return;
+  before();
+  if (net) {
+    const r = await call('boost', { kind });
+    if (r.closed) { setBusy(false); return lost(); }
+    setBalance(r.balance);
+    if (!r.sold) { setBusy(false); hud(); armHint(); return toast(r.error || 'Нет связи с сервером игры'); }
+  }
+  used[kind]++;
+  const a = kind === 'h' ? ['h', cellNo] : [kind];
+  const res = act(g, a);
+  actions.push(a);
+  hud();
+  await show(res);
+  after();
+}
+
+// A move is shown if the player waits for long
+function armHint() {
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    if (busy || state !== 'play') return;
+    const m = findMove(g.board);
+    if (m) for (const i of m) { tiles[i].classList.remove('hint'); void tiles[i].offsetWidth; tiles[i].classList.add('hint'); }
+    armHint();
+  }, HINT_MS);
+}
+
+// ---- Input: tap a piece and then its neighbour, or drag a piece towards the neighbour ----
+function select(i) {
+  if (sel >= 0) tiles[sel]?.classList.remove('sel');
+  sel = i;
+  if (sel >= 0) tiles[sel].classList.add('sel');
+}
+function cellAt(e) {
+  const r = boardEl.getBoundingClientRect();
+  const col = Math.floor((e.clientX - r.left) / cell), row = Math.floor((e.clientY - r.top) / cell);
+  const i = row * COLS + col;
+  return col < 0 || row < 0 || col >= COLS || row >= ROWS || g.board[i] === VOID ? -1 : i;
+}
+let drag = null; // { from, x, y }
+boardEl.addEventListener('pointerdown', e => {
+  if (busy || state !== 'play') return;
+  const i = cellAt(e);
+  if (i < 0) return;
+  e.preventDefault();
+  if (aim) { aim = false; boost('h', i); return; }
+  if (sel >= 0 && adjacent(sel, i)) { const from = sel; drag = null; swap(from, i); return; }
+  select(i === sel ? -1 : i);
+  drag = sel >= 0 ? { from: i, x: e.clientX, y: e.clientY } : null;
+});
+addEventListener('pointermove', e => {
+  if (!drag || busy) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < cell * 0.35) return;
+  const { from } = drag;
+  drag = null;
+  const col = colOf(from), row = rowOf(from);
+  const [c, r] = Math.abs(dx) > Math.abs(dy) ? [col + Math.sign(dx), row] : [col, row + Math.sign(dy)];
+  if (c >= 0 && r >= 0 && c < COLS && r < ROWS) swap(from, r * COLS + c);
+});
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('pointercancel', () => { drag = null; });
+
+// Boosters: the hammer waits for a cell to be picked, the other two work at once
+$('boosts').addEventListener('click', e => {
+  const btn = e.target.closest('.boost');
+  if (!btn || btn.disabled || busy || state !== 'play') return;
+  const k = btn.dataset.k;
+  if (k !== 'h') { aim = false; boost(k); return; }
+  aim = !aim; select(-1); hud();
+  if (aim) toast('Выбери клетку, по которой ударить', 2500);
+});
+
+const showLevel = () => { $('startLvl').textContent = `Уровень ${level}`; $('level').textContent = level; };
+$('plus').textContent = `+${BOOST_MOVES}`;
+$('go').onclick = startGame;
+$('again').onclick = startGame;
+reset((Math.random() * 2 ** 32) >>> 0, level);
+showLevel();
+
+// The messenger's script is loaded only when the page was opened from it
+async function loadTelegram() {
+  if (!/tgWebAppData/.test(location.hash)) return null;
+  await new Promise(done => {
+    const s = document.createElement('script');
+    s.src = 'https://telegram.org/js/telegram-web-app.js';
+    s.onload = s.onerror = done;
+    document.head.append(s);
+  });
+  return window.Telegram?.WebApp || null;
+}
+
+// Inside the messenger: full height, no swipe-to-close while dragging pieces,
+// and the online mode if the link names the game server
+loadTelegram().then(async tgApp => {
+  if (!tgApp) return;
+  const host = new URLSearchParams(location.search).get('api') || '';
+  const token = tgApp.initDataUnsafe?.start_param || '';
+  if (tgApp.initData && token && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(host)) {
+    net = { host, token, sid: '', dead: false };
+    lockButtons(true);
+    const r = await call('open', { initData: tgApp.initData });
+    lockButtons(false);
+    if (r.sid) {
+      net.sid = r.sid; best = r.best || 0; level = r.level || 1;
+      setBalance(r.balance);
+      $('netInfo').textContent = `Пройденный уровень платит монеты на баланс: очки и приз, до ${MAX_PAY}`;
+      $('netInfo').hidden = false;
+      reset((Math.random() * 2 ** 32) >>> 0, level);
+      showLevel();
+    } else {
+      // No session: the game still runs, on its own in this browser
+      net = null;
+      toast(r.error || 'Нет связи с сервером игры');
+    }
+  }
+  tgApp.ready(); tgApp.expand();
+  tgApp.disableVerticalSwipes?.();
+  if (tgApp.HapticFeedback) haptic = kind => { try { tgApp.HapticFeedback.impactOccurred(kind); } catch (e) {} };
+});
+</script>
+</body>
+</html>

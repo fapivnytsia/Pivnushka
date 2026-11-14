@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Пивнушка</title>
 <style>
-/* Layout: a pub counter. Level, plates, moves and score on top, the board in the middle, boosters under it,
-   the start / end-of-level card over everything */
+/* Layout: a pub at night. Level, plates, moves and score on top, the board in the middle, boosters under it,
+   the start / end-of-level card over everything; a canvas of sparks and coins over the board */
 :root{
   --wood:#2a160b;
   --wood-2:#3c2212;
@@ -25,27 +25,49 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--wood);color:var(--text);font:400 15px/1.4 var(--f);-webkit-font-smoothing:antialiased;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
 body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) 10px calc(env(safe-area-inset-bottom,0px) + 10px);
-  background:radial-gradient(120% 70% at 50% 0%,#6b3d1c 0%,var(--wood-2) 45%,var(--wood) 100%)}
+  background:radial-gradient(90% 60% at 50% 50%,rgba(20,9,3,.72),rgba(20,9,3,.38)),url(assets/bg.jpg) center/cover no-repeat,var(--wood)}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage.shake{animation:shake .38s ease-out}
+@keyframes shake{15%{transform:translate(calc(var(--sk) * -1),var(--sk)) rotate(-.5deg)}30%{transform:translate(var(--sk),calc(var(--sk) * -.6)) rotate(.5deg)}
+  45%{transform:translate(calc(var(--sk) * -.7),calc(var(--sk) * -.4))}60%{transform:translate(calc(var(--sk) * .5),calc(var(--sk) * .5))}80%{transform:translate(calc(var(--sk) * -.2),0)}}
+#fx{position:fixed;inset:0;z-index:7;width:100%;height:100%;pointer-events:none}
+.rays{position:fixed;z-index:7;left:50%;top:50%;width:min(150vw,150vh);aspect-ratio:1;margin:calc(min(150vw,150vh) / -2) 0 0 calc(min(150vw,150vh) / -2);
+  background:url(assets/rays.png) center/contain no-repeat;mix-blend-mode:screen;opacity:.75;pointer-events:none;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mute{appearance:none;position:fixed;z-index:9;right:10px;top:calc(env(safe-area-inset-top,0px) + 8px);width:36px;height:36px;border:0;border-radius:50%;
+  background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 1px rgba(255,220,160,.25);color:var(--text);font:400 17px/1 var(--f);cursor:pointer}
 
 .hud{width:var(--board-w);display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .stat{min-width:0;padding:6px 4px 7px;border-radius:12px;background:rgba(0,0,0,.32);box-shadow:inset 0 0 0 1px rgba(255,220,160,.14);text-align:center}
 .stat span{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
-.stat b{display:block;font:800 clamp(19px,5.6vw,27px)/1.1 var(--f);font-variant-numeric:tabular-nums}
-.stat.goal b{color:#9fd8ff}
+.stat{backdrop-filter:blur(3px)}
+.stat b{display:block;font:800 clamp(19px,5.6vw,27px)/1.1 var(--f);font-variant-numeric:tabular-nums;text-shadow:0 0 10px rgba(255,200,90,.45)}
+.stat b.bump{animation:bump .3s ease-out}
+@keyframes bump{40%{transform:scale(1.35);color:#fff;text-shadow:0 0 16px #ffd36a}}
+.stat.goal b{color:#9fd8ff;text-shadow:0 0 10px rgba(120,200,255,.6)}
+.stat.low{animation:low .7s ease-in-out infinite}
 .stat.low b{color:#ff8a7a}
+@keyframes low{50%{box-shadow:inset 0 0 0 2px #ff6a55,0 0 16px rgba(255,90,60,.6)}}
 
 .board{position:relative;width:var(--board-w);height:var(--board-h);border-radius:14px;overflow:hidden;
-  background:rgba(20,10,4,.55);box-shadow:0 0 0 3px #7a4a24,0 0 0 6px #2a160b,0 14px 34px rgba(0,0,0,.55)}
-.board.aim{box-shadow:0 0 0 3px #ffd36a,0 0 0 6px #2a160b,0 0 26px rgba(255,200,80,.55);cursor:crosshair}
+  background:rgba(20,10,4,.55);box-shadow:0 0 0 3px #7a4a24,0 0 0 6px #2a160b,0 14px 34px rgba(0,0,0,.55);animation:glow 2.6s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 3px #c98a3a,0 0 0 6px #2a160b,0 0 30px rgba(255,180,70,.55),0 14px 34px rgba(0,0,0,.55)}}
+.board.aim{box-shadow:0 0 0 3px #ffd36a,0 0 0 6px #2a160b,0 0 26px rgba(255,200,80,.55);cursor:crosshair;animation:none}
+/* A band of light sweeps over the pieces now and then */
+.board::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;mix-blend-mode:overlay;
+  background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.55) 50%,transparent 58%) 130% 0/300% 100% no-repeat;animation:sweep 5s ease-in-out infinite}
+@keyframes sweep{0%,55%{background-position:130% 0}100%{background-position:-30% 0}}
 /* A cell of the board; a plate under it is a stone slab, a double one has a golden rim */
 .bg{position:absolute;left:0;top:0;width:var(--c);height:var(--c);background:var(--cell)}
 .bg.odd{background:var(--cell-2)}
 .bg.p1,.bg.p2{background:linear-gradient(135deg,#cfe6f5,#8fb6d2);box-shadow:inset 0 0 0 2px #5d86a6,inset 0 0 0 4px rgba(255,255,255,.35)}
 .bg.p2{background:linear-gradient(135deg,#7fa6c4,#4d7696);box-shadow:inset 0 0 0 3px #ffd36a,inset 0 0 0 5px #8a5a10}
+.bg.p1,.bg.p2{animation:twinkle 2.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+@keyframes twinkle{50%{filter:brightness(1.3)}}
 .bg.broke{animation:broke .35s ease-out}
 @keyframes broke{from{filter:brightness(2.2)}}
 .tile{position:absolute;left:0;top:0;width:var(--c);height:var(--c);padding:calc(var(--c) * .07);will-change:transform;
-  transition:transform var(--t,.18s) cubic-bezier(.3,.8,.4,1)}
+  transition:transform var(--t,.18s) cubic-bezier(.3,1.3,.5,1)}
 .tile i{position:relative;z-index:1;display:block;width:100%;height:100%;background:center/contain no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));
   transition:transform .2s,opacity .2s}
 .k0 i{background-image:url(assets/mug.png)}
@@ -77,8 +99,9 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 @keyframes pulse{50%{transform:scale(1.18)}}
 @keyframes shine{50%{filter:drop-shadow(0 0 9px #ffe07a) brightness(1.15)}}
 .tile.sel{z-index:2}
-.tile.sel i{transform:scale(1.14);filter:drop-shadow(0 0 6px #ffe28a) drop-shadow(0 2px 2px rgba(0,0,0,.45))}
-.tile.pop i{transform:scale(.2) rotate(25deg);opacity:0}
+.tile.sel i{transform:scale(1.14);filter:drop-shadow(0 0 6px #ffe28a) drop-shadow(0 2px 2px rgba(0,0,0,.45));animation:wobble .5s ease-in-out infinite}
+@keyframes wobble{50%{transform:scale(1.2) rotate(5deg)}}
+.tile.pop i{transform:scale(1.5) rotate(25deg);opacity:0;filter:brightness(2.5)}
 .tile.pop::before,.tile.pop::after,.tile.pop u{opacity:0}
 .tile.mix i{transform:scale(.3);opacity:0}
 .tile.born{animation:born .3s cubic-bezier(.3,1.6,.5,1)}
@@ -88,6 +111,8 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 .gain{position:absolute;z-index:6;transform:translate(-50%,-50%);font:800 calc(var(--c) * .5)/1 var(--f);color:#fff;white-space:nowrap;
   text-shadow:0 2px 0 var(--amber-d),0 0 10px rgba(0,0,0,.6);pointer-events:none;animation:gain .8s ease-out forwards}
 .gain.big{color:#ffe28a;font-size:calc(var(--c) * .68)}
+.gain.praise{font-size:calc(var(--c) * .95);color:#fff;text-shadow:0 3px 0 var(--amber-d),0 0 18px #ffd36a,0 0 34px #ff9a2a;animation:praise .85s ease-out forwards}
+@keyframes praise{from{opacity:0;scale:.3}25%{opacity:1;scale:1.25}45%{scale:1}80%{opacity:1}to{opacity:0;scale:1.1}}
 @keyframes gain{from{opacity:0;margin-top:8px}20%{opacity:1}to{opacity:0;margin-top:calc(var(--c) * -.9)}}
 .fx{position:absolute;z-index:5;pointer-events:none;border-radius:calc(var(--c) * .3);background:radial-gradient(closest-side,#fff,rgba(255,214,110,.85) 55%,rgba(255,150,40,0));animation:fx .38s ease-out forwards}
 .fx.all{inset:0;border-radius:0;background:rgba(255,226,140,.6)}
@@ -110,7 +135,11 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 .card{position:fixed;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,calc(100% - 32px));max-height:calc(100% - 24px);overflow:auto;padding:18px 18px 20px;border-radius:18px;
   background:linear-gradient(#6a3c1c,#4a2812);box-shadow:0 0 0 3px #8a5528,0 0 0 6px #2a160b,0 20px 50px rgba(0,0,0,.6);text-align:center}
 .card .lvl{display:inline-block;margin-bottom:6px;padding:3px 12px;border-radius:99px;background:rgba(0,0,0,.3);color:var(--amber);font:800 13px/1.4 var(--f);letter-spacing:.06em;text-transform:uppercase}
-.card h1{margin:0 0 6px;font:800 30px/1.1 var(--f);color:var(--foam)}
+.card h1{margin:0 0 6px;font:800 30px/1.1 var(--f);color:var(--foam);background:linear-gradient(100deg,#fff4d6 20%,#ffd36a 40%,#fff 50%,#ffd36a 60%,#fff4d6 80%) 0 0/250% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35));animation:title 3s linear infinite}
+@keyframes title{to{background-position:-250% 0}}
+.card{animation:card .35s cubic-bezier(.3,1.5,.5,1)}
+@keyframes card{from{opacity:0;scale:.7}}
 .card p{margin:0 0 10px;color:var(--dim)}
 .card ul{margin:0 0 12px;padding:0;list-style:none;text-align:left;color:var(--dim);font-size:13px;line-height:1.3}
 .card li{display:flex;align-items:center;gap:8px;margin:5px 0}
@@ -121,15 +150,19 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 .stats b{display:block;font:800 30px/1.1 var(--f);font-variant-numeric:tabular-nums}
 .stats span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
 .new{font:800 18px/1.2 var(--f);color:#ffe28a}
-.paid{font:800 22px/1.2 var(--f);color:var(--amber)}
-.btn{appearance:none;border:0;border-radius:14px;padding:12px 30px;background:linear-gradient(#ffc548,var(--amber));color:#3a1f08;font:800 19px/1 var(--f);cursor:pointer;box-shadow:0 4px 0 var(--amber-d)}
+.paid{font:800 22px/1.2 var(--f);color:var(--amber);text-shadow:0 0 14px rgba(255,190,70,.8);animation:bump .5s ease-out 2}
+.btn{appearance:none;position:relative;overflow:hidden;border:0;border-radius:14px;padding:12px 30px;background:linear-gradient(#ffc548,var(--amber));color:#3a1f08;font:800 19px/1 var(--f);cursor:pointer;
+  box-shadow:0 4px 0 var(--amber-d),0 0 18px rgba(255,190,70,.55);animation:btn 1.4s ease-in-out infinite}
+.btn::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.7) 50%,transparent 60%) 130% 0/300% 100% no-repeat;animation:sweep 2.6s ease-in-out infinite}
+@keyframes btn{50%{scale:1.05}}
 .btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--amber-d)}
 .btn:disabled{opacity:.6;cursor:default}
 .toast{position:fixed;z-index:9;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 14px;border-radius:10px;background:var(--foam);color:#7a1d12;font-weight:700;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
-@media (prefers-reduced-motion:reduce){.tile.hint i,.t1::before,.t2::before,.t3::after,.gold i,.boost.urge{animation:none}}
+@media (prefers-reduced-motion:reduce){.tile.hint i,.t1::before,.t2::before,.t3::after,.gold i,.boost.urge,.board,.board::after,.bg.p1,.bg.p2,.btn,.btn::after,.card h1,.rays,.stat.low,.tile.sel i{animation:none}}
 </style>
 </head>
 <body>
+<div class="stage" id="stage">
 <div class="hud">
   <div class="stat"><span>уровень</span><b id="level">1</b></div>
   <div class="stat goal"><span>плитки</span><b id="plates">0</b></div>
@@ -143,6 +176,10 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
   <button class="boost" data-k="m"><div class="plus" id="plus">+5</div><div><b>Ходы</b><span></span></div><em></em></button>
 </div>
 <div class="wallet" id="wallet" hidden>На балансе: <b id="balance">0</b></div>
+</div>
+<div class="rays" id="rays" hidden></div>
+<canvas id="fx"></canvas>
+<button class="mute" id="mute" aria-label="Звук">🔊</button>
 
 <div class="card" id="start">
   <div class="lvl" id="startLvl">Уровень 1</div>
@@ -181,6 +218,146 @@ const $ = id => document.getElementById(id);
 const boardEl = $('board');
 const sleep = ms => new Promise(done => setTimeout(done, ms));
 const SWAP_MS = 180, POP_MS = 220, FALL_MS = 90, HINT_MS = 6000;
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rand = (a, b) => a + Math.random() * (b - a);
+
+/* ---------- sound: short recorded effects from assets/snd ---------- */
+// name: how loud it plays. The files start loading at once and are decoded on the first tap,
+// when the browser lets the page make sound.
+const SOUNDS = { click: 0.5, start: 0.7, swap: 0.45, bad: 0.6, pop: 0.7, made: 0.7, line: 0.7, bomb: 0.95, gold: 0.8, ice: 0.6, chain: 0.6,
+  crate: 0.7, plate: 0.5, shuffle: 0.7, hammer: 0.95, moves: 0.8, buy: 0.7, tick: 0.6, win: 0.9, lose: 0.8 };
+const files = {}, bufs = {}, ready = {};
+for (const name of Object.keys(SOUNDS)) files[name] = fetch(`assets/snd/${name}.mp3`).then(r => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+let ac = null, master = null, muted = false;
+try { muted = localStorage.getItem('match.mute') === '1'; } catch (e) {}
+function audio() {
+  if (muted) return null;
+  if (!ac) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ac = new AC();
+    master = ac.createGain(); master.gain.value = 0.7; master.connect(ac.destination);
+    for (const name of Object.keys(SOUNDS)) {
+      ready[name] = files[name].then(data => data && new Promise(done => ac.decodeAudioData(data, buf => { bufs[name] = buf; done(); }, done)));
+    }
+  }
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+const semi = n => 2 ** (n / 12);
+// Plays a sound `at` seconds from now, `up` semitones higher, a little higher or lower each time (`waver` semitones)
+function snd(name, { up = 0, at = 0, waver = 0.8, vol = 1 } = {}) {
+  const a = audio();
+  if (!a) return;
+  const buf = bufs[name];
+  if (!buf) {
+    // Not decoded yet (the very first tap): played as soon as it is, unless that takes too long
+    const asked = performance.now();
+    ready[name]?.then(() => { if (bufs[name] && performance.now() - asked < 700) snd(name, { up, waver, vol }); });
+    return;
+  }
+  const src = a.createBufferSource(), g = a.createGain();
+  src.buffer = buf; src.playbackRate.value = semi(up + rand(-waver, waver));
+  g.gain.value = SOUNDS[name] * vol;
+  src.connect(g); g.connect(master); src.start(a.currentTime + at);
+}
+// A chain of runs and the swaps left turning into points climb a scale
+const SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
+const step = n => SCALE[Math.min(n, SCALE.length - 1)];
+const sfx = {
+  click: () => snd('click'),
+  start: () => snd('start', { waver: 0.3 }),
+  swap: () => snd('swap'),
+  bad: () => snd('bad'),
+  pop: combo => snd('pop', { up: step(combo - 1), waver: 0.4 }),
+  made: () => snd('made', { at: 0.15, waver: 0.3 }),
+  line: () => snd('line'),
+  bomb: () => snd('bomb', { waver: 1.5 }),
+  gold: () => snd('gold', { waver: 0.3 }),
+  ice: () => snd('ice', { at: 0.04 }),
+  chain: () => snd('chain', { at: 0.04 }),
+  crate: () => snd('crate', { at: 0.03, waver: 1.2 }),
+  plate: () => snd('plate', { at: 0.05, waver: 1.2 }),
+  shuffle: () => snd('shuffle'),
+  hammer: () => snd('hammer', { waver: 1.2 }),
+  moves: () => snd('moves', { waver: 0.2 }),
+  buy: () => snd('buy', { waver: 0.3 }),
+  tick: n => snd('tick', { up: step(n % SCALE.length), waver: 0.2 }),
+  win: () => snd('win', { waver: 0 }),
+  lose: () => snd('lose', { waver: 0 }),
+};
+
+/* ---------- sparks, splashes and coins on a canvas over the page ---------- */
+const fxc = $('fx'), fcx = fxc.getContext('2d');
+function fitFx() {
+  const d = Math.min(window.devicePixelRatio || 1, 2);
+  fxc.width = innerWidth * d; fxc.height = innerHeight * d;
+  fcx.setTransform(d, 0, 0, d, 0, 0);
+}
+addEventListener('resize', fitFx); fitFx();
+const SPR = {};
+for (const n of ['star', 'rays', 'splash', 'ring', 'coin']) { const im = new Image(); im.src = `assets/${n}.png`; SPR[n] = im; }
+const drawn = im => im.complete && im.naturalWidth > 0;
+// A particle: { x, y, vx, vy, g: gravity, life, size, grow, rot, vr, color | spr, add: drawn as light, wave: fades in and out }
+let parts = [], fxOn = false, fxLast = 0;
+function spark(o) {
+  if (calm || parts.length > 600) return;
+  parts.push({ t: 0, vx: 0, vy: 0, g: 0, rot: 0, vr: 0, grow: 0, ...o });
+  if (!fxOn) { fxOn = true; fxLast = performance.now(); requestAnimationFrame(fxFrame); }
+}
+function fxFrame(now) {
+  const dt = Math.min(0.033, (now - fxLast) / 1000); fxLast = now;
+  fcx.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => (p.t += dt) < p.life);
+  for (const p of parts) {
+    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    const k = p.t / p.life, size = p.size * (1 + p.grow * k);
+    fcx.globalAlpha = Math.max(0, p.wave ? Math.sin(k * Math.PI) : 1 - k * k);
+    fcx.globalCompositeOperation = p.add ? 'lighter' : 'source-over';
+    if (p.spr && drawn(SPR[p.spr])) {
+      fcx.save(); fcx.translate(p.x, p.y); fcx.rotate(p.rot);
+      fcx.drawImage(SPR[p.spr], -size / 2, -size / 2, size, size);
+      fcx.restore();
+    } else {
+      fcx.fillStyle = p.color || '#ffe28a';
+      fcx.beginPath(); fcx.arc(p.x, p.y, size / (p.spr ? 5 : 2), 0, 7); fcx.fill();
+    }
+  }
+  fcx.globalAlpha = 1; fcx.globalCompositeOperation = 'source-over';
+  if (parts.length) requestAnimationFrame(fxFrame); else fxOn = false;
+}
+const COLORS = ['#ffc13b', '#ff4d3d', '#e8914a', '#d5dee6', '#7ed957', '#ffe84a'];
+function colorOf(el) {
+  const k = /\bk(\d)/.exec(el.className);
+  return k ? COLORS[+k[1]] : el.classList.contains('crate') ? '#b97a3f' : '#ffe07a';
+}
+// Bits flying out of a point, falling
+function burst(x, y, color, n = 7, power = 1) {
+  for (let k = 0; k < n; k++) {
+    const a = rand(0, 6.28), v = rand(60, 230) * power;
+    spark({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, g: 520, life: rand(0.4, 0.75), size: cell * rand(0.1, 0.2), color });
+  }
+}
+const twinkle = (x, y, size = cell * rand(0.4, 0.9)) =>
+  spark({ spr: 'star', add: true, wave: true, x: x + rand(-0.3, 0.3) * cell, y: y + rand(-0.3, 0.3) * cell, vy: rand(-50, -10), life: rand(0.45, 0.8), size, vr: rand(-3, 3) });
+const glow = (spr, x, y, size, life = 0.45, grow = 1) => spark({ spr, add: true, wave: spr === 'rays', x, y, size, life, grow, rot: rand(0, 6), vr: spr === 'rays' ? 2 : 0 });
+function shake(px) {
+  if (calm || !px) return;
+  const st = $('stage');
+  st.style.setProperty('--sk', Math.min(16, px) + 'px');
+  st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
+}
+function bump(el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+// Coins and confetti over the whole page: the level is won
+function party() {
+  for (let k = 0; k < 46; k++) {
+    setTimeout(() => {
+      spark({ spr: 'coin', x: rand(0, innerWidth), y: -24, vx: rand(-40, 40), vy: rand(120, 320), g: 420, life: rand(1.4, 2.2), size: rand(20, 38), vr: rand(-7, 7) });
+      spark({ x: rand(0, innerWidth), y: -10, vx: rand(-60, 60), vy: rand(80, 220), g: 200, life: rand(1.5, 2.4), size: rand(5, 10), color: COLORS[k % COLORS.length] });
+    }, k * 28);
+  }
+}
+const PRAISE = ['Сочно!', 'Залпом!', 'Пенно!', 'До дна!', 'Легенда!'];
 
 // The board fills the screen width, or what is left of the height around the counters and the boosters
 let cell = 40;
@@ -229,7 +406,7 @@ function hud() {
   $('level').textContent = g ? g.level.n : level;
   $('plates').textContent = g ? g.platesLeft : 0;
   $('score').textContent = g ? g.score : 0;
-  $('left').textContent = g ? g.left : 0;
+  $('left').textContent = g && !g.won ? g.left : 0;
   $('leftBox').classList.toggle('low', !!g && g.left <= 3 && state === 'play');
   for (const btn of document.querySelectorAll('.boost')) {
     const k = btn.dataset.k, rest = MAX_BOOST - used[k];
@@ -252,6 +429,7 @@ function reset(seed, n) {
     const bg = document.createElement('div');
     bg.className = bgClass(i, g.plate[i]);
     bg.style.transform = `translate(${colOf(i) * 100}%,${rowOf(i) * 100}%)`;
+    bg.style.setProperty('--d', ((i * 37) % 26) / 10 + 's');
     boardEl.append(bg);
     bgs[i] = bg;
   }
@@ -311,7 +489,8 @@ async function startGame() {
   }
   state = 'play';
   reset(seed, level);
-  $('start').hidden = true; $('over').hidden = true; $('toast').hidden = true;
+  sfx.start();
+  $('start').hidden = true; $('over').hidden = true; $('toast').hidden = true; $('rays').hidden = true;
   armHint();
 }
 
@@ -345,12 +524,14 @@ async function endGame() {
   $('paid').textContent = `+${paid} на баланс` + (paid >= MAX_PAY ? ' — потолок' : ''); $('paid').hidden = !paid;
   $('again').textContent = won ? `Уровень ${level}` : 'Ещё раз';
   $('over').hidden = false;
+  $('rays').hidden = !won || calm;
+  if (won) { sfx.win(); party(); haptic?.('heavy'); } else sfx.lose();
 }
 
 // ---- What an action does on the screen ----
 function label(text, x, y, big) {
   const el = document.createElement('div');
-  el.className = 'gain' + (big ? ' big' : '');
+  el.className = 'gain' + (big === 'praise' ? ' praise' : big ? ' big' : '');
   el.textContent = text;
   el.style.left = Math.max(cell, Math.min(cell * (COLS - 1), x * cell)) + 'px';
   el.style.top = y * cell + 'px';
@@ -381,21 +562,60 @@ async function show(res) {
   let shown = g.score - res.bonus - res.steps.reduce((sum, s) => sum + s.gain, 0);
   let plates = g.platesLeft + res.steps.reduce((sum, s) => sum + s.plates.length, 0);
   for (const step of res.steps) {
-    for (const [type, i] of step.fx) flash(type, i);
-    for (const i of step.cleared) tiles[i].classList.add('pop');
-    for (const [i] of step.changed) tiles[i].classList.add('crack');
+    const box = boardEl.getBoundingClientRect();
+    const mid = i => [box.left + (colOf(i) + 0.5) * cell, box.top + (rowOf(i) + 0.5) * cell];
+    const types = step.fx.map(f => f[0]);
+    for (const [type, i] of step.fx) {
+      flash(type, i);
+      const [x, y] = mid(i);
+      glow('rays', x, y, cell * (type === BOMB ? 4 : 3), 0.55);
+      glow('ring', x, y, cell, 0.45, type === BOMB ? 4 : 3);
+      // A line piece throws stars along its row or column
+      if (type === LINE_H) for (let c = 0; c < COLS; c++) twinkle(box.left + (c + 0.5) * cell, y);
+      if (type === LINE_V) for (let r = 0; r < ROWS; r++) twinkle(x, box.top + (r + 0.5) * cell);
+    }
+    for (const i of step.cleared) {
+      const [x, y] = mid(i);
+      burst(x, y, colorOf(tiles[i]));
+      glow('splash', x, y, cell * 0.9, 0.35, 0.9);
+      if (Math.random() < 0.5) twinkle(x, y);
+      tiles[i].classList.add('pop');
+    }
+    let ice = false, chain = false;
+    for (const [i] of step.changed) {
+      const [x, y] = mid(i), locked = tiles[i].classList.contains('c1');
+      if (locked) chain = true; else ice = true;
+      burst(x, y, locked ? '#aeb6bd' : '#cdeeff', 8);
+      tiles[i].classList.add('crack');
+    }
     gainLabel([...step.cleared, ...step.changed.map(c => c[0])], step.gain, step.combo);
+    if (step.combo >= 3 || step.cleared.length >= 12) label(PRAISE[Math.min(PRAISE.length - 1, Math.max(0, step.combo - 3) + (step.cleared.length >= 12 ? 1 : 0))], COLS / 2, ROWS / 2 - 1, 'praise');
     haptic?.(step.fx.length ? 'heavy' : step.combo > 1 ? 'medium' : 'light');
+    if (types.includes(4)) sfx.gold(); else if (types.includes(BOMB)) sfx.bomb(); else if (types.length) sfx.line(); else sfx.pop(step.combo);
+    if (types.length && step.combo > 1) sfx.pop(step.combo);
+    if (ice) sfx.ice();
+    if (chain) sfx.chain();
+    if (step.cleared.some(i => tiles[i].classList.contains('crate'))) sfx.crate();
+    if (step.plates.length) sfx.plate();
+    if (step.made.length) sfx.made();
+    shake(types.length ? 5 + 3 * types.length + (types.includes(BOMB) ? 3 : 0) : step.combo > 1 ? 1 + step.combo : 0);
     shown += step.gain; plates -= step.plates.length;
-    $('score').textContent = shown;
-    $('plates').textContent = plates;
+    $('score').textContent = shown; bump($('score'));
+    if (step.plates.length) { $('plates').textContent = plates; bump($('plates')); }
     await sleep(POP_MS);
     for (const i of step.cleared) { tiles[i].remove(); tiles[i] = null; }
     for (const [i, piece] of step.changed) tiles[i].className = pieceClass(piece);
-    for (const [i, layers] of step.plates) bgs[i].className = bgClass(i, layers) + ' broke';
+    for (const [i, layers] of step.plates) {
+      bgs[i].className = bgClass(i, layers) + ' broke';
+      const [x, y] = mid(i);
+      burst(x, y, '#bfe2f7', 5, 0.7); twinkle(x, y, cell * 0.8);
+    }
     for (const [i, piece] of step.made) {
       tiles[i] = makeTile(piece, colOf(i), rowOf(i));
       tiles[i].classList.add('born');
+      const [x, y] = mid(i);
+      glow('rays', x, y, cell * 2.4, 0.6); glow('ring', x, y, cell * 0.8, 0.4, 2);
+      for (let k = 0; k < 4; k++) twinkle(x, y);
     }
 
     // Pieces fall: the one now in cell i came from drops[i] rows above, a new one from above the top
@@ -414,11 +634,20 @@ async function show(res) {
   }
 
   if (res.bonus) {
+    // The swaps left turn into points one by one
+    const each = res.bonus / g.left, box = $('leftBox').getBoundingClientRect();
+    let sum = g.score - res.bonus;
+    for (let n = g.left - 1; n >= 0; n--) {
+      sum += each;
+      $('left').textContent = n; $('score').textContent = sum; bump($('score'));
+      sfx.tick(g.left - n); twinkle(box.left + box.width / 2, box.top + box.height / 2, 34);
+      await sleep(Math.max(40, 420 / g.left));
+    }
     label(`+${res.bonus} за ходы`, COLS / 2, ROWS / 2, true);
-    $('score').textContent = g.score;
-    await sleep(500);
+    await sleep(350);
   }
   if (res.shuffled) {
+    sfx.shuffle();
     if (!res.steps.length) haptic?.('medium'); else toast('Ходов нет — фишки перемешаны', 2500);
     for (const el of tiles) el?.classList.add('mix');
     await sleep(POP_MS);
@@ -448,6 +677,7 @@ async function swap(a, b) {
   // A golden piece goes off where it stands; any other pair changes places
   const gold = g.board[a] === GOLD || g.board[b] === GOLD;
   const ok = canSwap(g.board, a, b);
+  if (ok) sfx.swap(); else sfx.bad();
   if (!gold || !ok) {
     place(ta, colOf(b), rowOf(b)); place(tb, colOf(a), rowOf(a));
     await sleep(SWAP_MS);
@@ -477,6 +707,15 @@ async function boost(kind, cellNo) {
     if (!r.sold) { setBusy(false); hud(); armHint(); return toast(r.error || 'Нет связи с сервером игры'); }
   }
   used[kind]++;
+  if (net) sfx.buy();
+  if (kind === 'h') sfx.hammer();
+  if (kind === 'm') sfx.moves();
+  if (kind === 'm') {
+    const box = $('leftBox').getBoundingClientRect();
+    for (let k = 0; k < 6; k++) twinkle(box.left + box.width / 2, box.top + box.height / 2, 30);
+    setTimeout(() => bump($('left')), 0);
+  }
+  if (kind === 'h') shake(4);
   const a = kind === 'h' ? ['h', cellNo] : [kind];
   const res = act(g, a);
   actions.push(a);
@@ -538,9 +777,27 @@ $('boosts').addEventListener('click', e => {
   if (!btn || btn.disabled || busy || state !== 'play') return;
   const k = btn.dataset.k;
   if (k !== 'h') { aim = false; boost(k); return; }
-  aim = !aim; select(-1); hud();
+  aim = !aim; select(-1); hud(); sfx.click();
   if (aim) toast('Выбери клетку, по которой ударить', 2500);
 });
+
+// Sound on and off, kept for the next visit
+function showMute() { $('mute').textContent = muted ? '🔇' : '🔊'; }
+$('mute').onclick = () => {
+  muted = !muted; showMute();
+  try { localStorage.setItem('match.mute', muted ? '1' : '0'); } catch (e) {}
+  sfx.click();
+};
+showMute();
+
+// Special pieces and plates glint while the game goes
+setInterval(() => {
+  if (state !== 'play' || busy || document.hidden) return;
+  const els = boardEl.querySelectorAll('.t1,.t2,.t3,.gold,.bg.p1,.bg.p2');
+  if (!els.length) return;
+  const r = els[Math.random() * els.length | 0].getBoundingClientRect();
+  twinkle(r.left + r.width / 2, r.top + r.height / 2, cell * rand(0.35, 0.7));
+}, 320);
 
 const showLevel = () => { $('startLvl').textContent = `Уровень ${level}`; $('level').textContent = level; };
 $('plus').textContent = `+${BOOST_MOVES}`;
